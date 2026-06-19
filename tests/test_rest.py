@@ -111,6 +111,9 @@ def token_swaps_response() -> dict[str, Any]:
     return {
         "mint": "Mint111",
         "count": 1,
+        "limit": 100,
+        "has_more": False,
+        "next_cursor": None,
         "items": [
             {
                 "block_time": 1781450361,
@@ -174,9 +177,10 @@ def test_sync_rest_resources_parse_models_and_send_auth_header() -> None:
             assert request.url.params["min_wallets"] == "2"
             return httpx.Response(200, json=tokens_held_response())
         if request.url.path == "/tokens/Mint111/swaps":
-            if request.url.params["aggregate"] == "true":
-                return httpx.Response(200, json=token_aggregates_response())
+            assert request.url.params["limit"] == "100"
             return httpx.Response(200, json=token_swaps_response())
+        if request.url.path == "/tokens/Mint111/wallet-aggregates":
+            return httpx.Response(200, json=token_aggregates_response())
         raise AssertionError(f"unexpected request: {request.url}")
 
     client = make_sync_client(httpx.MockTransport(handler))
@@ -188,7 +192,7 @@ def test_sync_rest_resources_parse_models_and_send_auth_header() -> None:
     assert client.wallets.holdings("W12").tokens[0].token.address == "Mint111"
     assert client.tokens.held().items[0].holders.wallet_count == 2
     swaps = client.tokens.swaps("Mint111")
-    aggregate = client.tokens.swaps("Mint111", aggregate=True)
+    aggregate = client.tokens.wallet_aggregates("Mint111")
     assert isinstance(swaps, TokenSwapsResponse)
     assert isinstance(aggregate, TokenAggregatesResponse)
     assert swaps.count == 1
@@ -223,7 +227,7 @@ def test_async_rest_resources_parse_models() -> None:
             if request.url.path == "/wallets":
                 page = int(request.url.params["page"])
                 return httpx.Response(200, json=wallets_page(page))
-            if request.url.path == "/tokens/Mint111/swaps":
+            if request.url.path == "/tokens/Mint111/wallet-aggregates":
                 return httpx.Response(200, json=token_aggregates_response())
             raise AssertionError(f"unexpected request: {request.url}")
 
@@ -234,7 +238,7 @@ def test_async_rest_resources_parse_models() -> None:
             client=http,
         ) as client:
             wallets = await client.wallets.list()
-            flow = await client.tokens.swaps("Mint111", aggregate=True)
+            flow = await client.tokens.wallet_aggregates("Mint111")
 
         assert wallets.items[0].identity.wallet == "W1"
         assert isinstance(flow, TokenAggregatesResponse)

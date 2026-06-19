@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator, Iterator
 
 from ..models import (
+    SwapItem,
     TokenAggregatesResponse,
     TokenHeldItem,
     TokenSwapsResponse,
@@ -40,16 +41,30 @@ class TokensResource:
         self,
         mint: str,
         *,
-        aggregate: bool = False,
-        tracked_only: bool = True,
-    ) -> TokenSwapsResponse | TokenAggregatesResponse:
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> TokenSwapsResponse:
+        params = {"limit": limit}
+        if cursor:
+            params["cursor"] = cursor
         data = self._client.get(
             f"/tokens/{mint}/swaps",
-            params={"aggregate": aggregate, "tracked_only": tracked_only},
+            params=params,
         )
-        if aggregate:
-            return TokenAggregatesResponse.model_validate(data)
         return TokenSwapsResponse.model_validate(data)
+
+    def iter_swaps(self, mint: str, *, limit: int = 100) -> Iterator[SwapItem]:
+        cursor: str | None = None
+        while True:
+            batch = self.swaps(mint, limit=limit, cursor=cursor)
+            yield from batch.items
+            if not batch.has_more or not batch.next_cursor:
+                return
+            cursor = batch.next_cursor
+
+    def wallet_aggregates(self, mint: str) -> TokenAggregatesResponse:
+        data = self._client.get(f"/tokens/{mint}/wallet-aggregates")
+        return TokenAggregatesResponse.model_validate(data)
 
 
 class AsyncTokensResource:
@@ -88,13 +103,33 @@ class AsyncTokensResource:
         self,
         mint: str,
         *,
-        aggregate: bool = False,
-        tracked_only: bool = True,
-    ) -> TokenSwapsResponse | TokenAggregatesResponse:
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> TokenSwapsResponse:
+        params = {"limit": limit}
+        if cursor:
+            params["cursor"] = cursor
         data = await self._client.get(
             f"/tokens/{mint}/swaps",
-            params={"aggregate": aggregate, "tracked_only": tracked_only},
+            params=params,
         )
-        if aggregate:
-            return TokenAggregatesResponse.model_validate(data)
         return TokenSwapsResponse.model_validate(data)
+
+    async def iter_swaps(
+        self,
+        mint: str,
+        *,
+        limit: int = 100,
+    ) -> AsyncIterator[SwapItem]:
+        cursor: str | None = None
+        while True:
+            batch = await self.swaps(mint, limit=limit, cursor=cursor)
+            for item in batch.items:
+                yield item
+            if not batch.has_more or not batch.next_cursor:
+                return
+            cursor = batch.next_cursor
+
+    async def wallet_aggregates(self, mint: str) -> TokenAggregatesResponse:
+        data = await self._client.get(f"/tokens/{mint}/wallet-aggregates")
+        return TokenAggregatesResponse.model_validate(data)

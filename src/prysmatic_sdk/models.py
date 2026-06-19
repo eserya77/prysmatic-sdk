@@ -138,6 +138,9 @@ class SwapItem(SDKModel):
 class TokenSwapsResponse(SDKModel):
     mint: str
     count: int
+    limit: int
+    has_more: bool
+    next_cursor: str | None = None
     items: list[SwapItem]
 
 

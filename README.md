@@ -67,9 +67,14 @@ coheld = client.tokens.held(min_wallets=3)
 for item in coheld.items:
     print(item.token.address, item.holders.wallet_count)
 
-flow = client.tokens.swaps(
+swaps = client.tokens.swaps(
     "FSA7iqBeeENna2LUmZyqCYce7op2jBc9ztXLKdM6bonk",
-    aggregate=True,
+    limit=100,
+)
+print(swaps.count, swaps.next_cursor)
+
+flow = client.tokens.wallet_aggregates(
+    "FSA7iqBeeENna2LUmZyqCYce7op2jBc9ztXLKdM6bonk",
 )
 print(flow.tracked_wallets)
 
