@@ -120,7 +120,7 @@ asyncio.run(main())
 
 The stream client:
 
-- authenticates using `Sec-WebSocket-Protocol: bearer, <api_key>`
+- authenticates to `/ws` with `Authorization: Bearer <API_KEY>`
 - resubscribes after reconnecting
 - applies exponential backoff with jitter
 - ignores free heartbeat pings

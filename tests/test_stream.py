@@ -6,10 +6,14 @@ from typing import Any
 
 import pytest
 import websockets
-from websockets.typing import Subprotocol
 
 from prysmatic_sdk.errors import StreamError
-from prysmatic_sdk.stream import StreamResource, _decode_message, _subscribe_payload
+from prysmatic_sdk.stream import (
+    StreamResource,
+    _authorization_header_kwargs,
+    _decode_message,
+    _subscribe_payload,
+)
 
 
 def test_subscribe_payload_with_wallet_filter() -> None:
@@ -35,11 +39,18 @@ def test_decode_message_rejects_invalid_payloads() -> None:
         _decode_message("[1, 2, 3]")
 
 
+def test_authorization_header_kwargs() -> None:
+    kwargs = _authorization_header_kwargs("test-key")
+    headers = kwargs.get("additional_headers") or kwargs.get("extra_headers")
+    assert headers == {"Authorization": "Bearer test-key"}
+
+
 def test_trade_stream_reads_from_websocket_server() -> None:
     async def run() -> None:
         received_subscriptions: list[dict[str, Any]] = []
 
         async def handler(ws: Any) -> None:
+            assert ws.request_headers["Authorization"] == "Bearer test-key"
             raw = await ws.recv()
             received_subscriptions.append(json.loads(raw))
             await ws.send(json.dumps({"type": "ping"}))
@@ -70,7 +81,6 @@ def test_trade_stream_reads_from_websocket_server() -> None:
             handler,
             "127.0.0.1",
             0,
-            subprotocols=[Subprotocol("bearer")],
         )
         try:
             socket = next(iter(server.sockets))

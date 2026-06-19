@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import random
 from collections.abc import AsyncGenerator, Sequence
 from typing import Any
 
 import websockets
-from websockets.typing import Subprotocol
 
 from .errors import (
     InsufficientCreditsError,
@@ -41,10 +41,7 @@ class StreamResource:
             try:
                 async with websockets.connect(
                     self._ws_url,
-                    subprotocols=[
-                        Subprotocol("bearer"),
-                        Subprotocol(self._api_key),
-                    ],
+                    **_authorization_header_kwargs(self._api_key),
                     ping_interval=None,
                 ) as ws:
                     await ws.send(json.dumps(_subscribe_payload(wallets)))
@@ -83,6 +80,14 @@ def _subscribe_payload(wallets: Sequence[str] | None) -> dict[str, Any]:
     if wallets:
         payload["wallets"] = list(wallets)
     return payload
+
+
+def _authorization_header_kwargs(api_key: str) -> dict[str, dict[str, str]]:
+    headers = {"Authorization": f"Bearer {api_key}"}
+    parameters = inspect.signature(websockets.connect).parameters
+    if "additional_headers" in parameters:
+        return {"additional_headers": headers}
+    return {"extra_headers": headers}
 
 
 def _decode_message(raw: str | bytes) -> dict[str, Any]:
